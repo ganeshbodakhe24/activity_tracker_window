@@ -124,3 +124,13 @@ pub const YOUTUBE_ENTERTAINMENT_KEYWORDS: &[&str] = &[
     "cricket",
     "football",
 ];
+
+pub const TERMINAL_KEYWORDS: &[&str] = &[
+    "command prompt",
+    "windows powershell",
+    "powershell",
+    "ubuntu",
+    "wsl",
+    "remoteapp",
+    "ganesh@",
+];

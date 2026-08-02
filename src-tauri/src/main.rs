@@ -1,50 +1,59 @@
 mod tracker;
-
+mod classifier;
 use tracker::foreground::get_active_window_title;
+use classifier::classifier::classify;
 
 use std::{
     thread,
     time::Duration,
 };
 
+fn clean_window_title(title: &str) -> String {
+    let lower = title.to_lowercase();
+
+    // Command Prompt / PowerShell running npm
+    if lower.contains("npm ") || lower.starts_with("npm") {
+        return "Command Prompt (npm)".to_string();
+    }
+
+    // Cargo
+    if lower.contains("cargo ") || lower.starts_with("cargo") {
+        return "Command Prompt (cargo)".to_string();
+    }
+
+    title.to_string()
+}
+
 fn main() {
 
     println!("Activity Tracker Started...\n");
 
-    // Stores the last active window.
-    // We only print when the window changes.
     let mut previous_window = String::new();
 
     loop {
 
         if let Some(current_window) = get_active_window_title() {
 
-            // Ignore windows with empty titles.
             if current_window.trim().is_empty() {
-                thread::sleep(Duration::from_secs(10));
+                thread::sleep(Duration::from_secs(2));
                 continue;
             }
 
-            // Ignore very long command windows.
-            // Later we'll replace this with process-name filtering.
-            if current_window.contains("npm list")
-                || current_window.contains("cargo")
-            {
-                thread::sleep(Duration::from_secs(10));
-                continue;
-            }
+let cleaned = clean_window_title(&current_window);
 
-            // Print only if the active window changed.
-            if current_window != previous_window {
+if cleaned != previous_window {
 
-                println!("Active Window : {}", current_window);
+    let category = classify(&cleaned);
 
-                previous_window = current_window;
-            }
+    println!("------------------------------------");
+    println!("Active Window : {}", cleaned);
+    println!("Category      : {}", category);
+
+    previous_window = cleaned;
+}
+
         }
 
-       
-        // 10 = check every 10 seconds
         thread::sleep(Duration::from_secs(2));
     }
 }
