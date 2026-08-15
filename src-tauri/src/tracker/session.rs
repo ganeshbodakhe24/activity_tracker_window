@@ -2,7 +2,9 @@ use chrono::{DateTime, Duration, Local};
 
 #[derive(Debug, Clone)]
 pub struct Session {
-    pub window_title: String,
+    pub application: String,
+    pub website: Option<String>,
+    pub title: String,
     pub category: String,
 
     pub start_time: DateTime<Local>,
@@ -10,9 +12,16 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(window_title: String, category: String) -> Self {
+    pub fn new(
+        application: String,
+        website: Option<String>,
+        title: String,
+        category: String,
+    ) -> Self {
         Self {
-            window_title,
+            application,
+            website,
+            title,
             category,
             start_time: Local::now(),
             end_time: None,
