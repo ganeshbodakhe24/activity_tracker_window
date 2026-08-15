@@ -338,10 +338,13 @@ export default function Dashboard() {
                   onClick={() => handleDayClick(idx)}
                   style={{
                     flexGrow: 1,
+                    height: "100%",
                     display: "flex",
                     flexDirection: "column",
+                    justifyContent: "flex-end",
                     alignItems: "center",
                     cursor: "pointer",
+                    position: "relative",
                   }}
                 >
                   {/* Bar */}
@@ -350,34 +353,77 @@ export default function Dashboard() {
                       width: "100%",
                       maxWidth: "50px",
                       height: `${Math.max(heightPct, 3)}%`,
-                      backgroundColor: idx === selectedDayIndex ? "var(--accent-color)" : "var(--bg-tertiary)",
                       borderRadius: "4px 4px 0 0",
                       transition: "all 0.3s ease",
                       boxShadow: idx === selectedDayIndex ? "0 0 12px rgba(99, 102, 241, 0.4)" : "none",
                       position: "relative",
+                      border: idx === selectedDayIndex ? "2px solid var(--accent-color)" : "1px solid var(--border-color)",
+                      backgroundColor: "var(--bg-tertiary)",
+                      marginBottom: "0.25rem",
                     }}
-                    title={formatHours(day.duration)}
+                    title={`${day.day_name}: ${formatHours(day.duration)} total`}
                   >
-                    {/* Tooltip value */}
+                    {/* Tooltip value (moves dynamically with the top of the bar) */}
                     <span
                       style={{
                         position: "absolute",
-                        top: "-25px",
+                        top: "-22px",
                         left: "50%",
                         transform: "translateX(-50%)",
                         fontSize: "0.75rem",
                         fontWeight: "600",
                         color: idx === selectedDayIndex ? "var(--text-primary)" : "var(--text-muted)",
                         whiteSpace: "nowrap",
+                        pointerEvents: "none",
                       }}
                     >
                       {formatHours(day.duration)}
                     </span>
+
+                    {/* Stacked Categories Container (with overflow:hidden to clip segments) */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        overflow: "hidden",
+                        borderRadius: "3px 3px 0 0",
+                        display: "flex",
+                        flexDirection: "column-reverse",
+                      }}
+                    >
+                      {day.duration > 0 && day.categories && day.categories.length > 0 ? (
+                        day.categories.map((cat: any, cIdx: number) => {
+                          const catPct = (cat.duration / day.duration) * 100;
+                          const catKey = cat.category.toLowerCase();
+                          const categoryColors: Record<string, string> = {
+                            coding: "#6366f1",
+                            study: "#10b981",
+                            entertainment: "#f59e0b",
+                            social: "#ef4444",
+                            other: "#64748b",
+                          };
+                          const color = categoryColors[catKey] || categoryColors["other"];
+                          return (
+                            <div
+                              key={cIdx}
+                              style={{
+                                width: "100%",
+                                height: `${catPct}%`,
+                                backgroundColor: color,
+                              }}
+                              title={`${cat.category}: ${formatHours(cat.duration)}`}
+                            />
+                          );
+                        })
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", backgroundColor: "var(--bg-tertiary)" }} />
+                      )}
+                    </div>
                   </div>
                   {/* Label */}
                   <span
                     style={{
-                      marginTop: "0.5rem",
+                      marginTop: "0.25rem",
                       fontSize: "0.8rem",
                       fontWeight: idx === selectedDayIndex ? "600" : "500",
                       color: idx === selectedDayIndex ? "var(--text-primary)" : "var(--text-secondary)",

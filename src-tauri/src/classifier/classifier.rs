@@ -10,6 +10,21 @@ pub fn classify(title: &str) -> String {
             return "Coding".to_string();
         }
     }
+    // Study Apps
+    let study_apps = repository::get_study_apps();
+    for app in &study_apps {
+        if title.contains(app) {
+            return "Study".to_string();
+        }
+    }
+
+    // Entertainment Apps
+    let entertainment_apps = repository::get_entertainment_apps();
+    for app in &entertainment_apps {
+        if title.contains(app) {
+            return "Entertainment".to_string();
+        }
+    }
 
     // Study websites
     let study_websites = repository::get_study_websites();

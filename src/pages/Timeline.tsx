@@ -21,6 +21,65 @@ export default function Timeline() {
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
+  const [selectedVisitForModal, setSelectedVisitForModal] = useState<TimelineEntry | null>(null);
+  const [selectedTargetTable, setSelectedTargetTable] = useState("coding_apps");
+  const [targetValue, setTargetValue] = useState("");
+  const [ruleCategory, setRuleCategory] = useState("Coding");
+
+  const tableCategories: Record<string, string> = {
+    coding_apps: "Coding",
+    study_apps: "Study",
+    entertainment_apps: "Entertainment",
+    study_websites: "Study",
+    social_websites: "Social",
+    entertainment_websites: "Entertainment",
+    youtube_study_keywords: "Study",
+    youtube_entertainment_keywords: "Entertainment",
+    terminal_keywords: "Study",
+  };
+
+  const handleTableChange = (table: string) => {
+    setSelectedTargetTable(table);
+    setRuleCategory(tableCategories[table] || "Study");
+  };
+
+  const handleAddCategoryClick = (visit: TimelineEntry) => {
+    setSelectedVisitForModal(visit);
+    
+    let defaultTable = "coding_apps";
+    let defaultValue = visit.application;
+
+    if (visit.website) {
+      defaultTable = "study_websites";
+      defaultValue = visit.website;
+    } else if (visit.title.toLowerCase().includes("cmd") || visit.title.toLowerCase().includes("terminal") || visit.title.toLowerCase().includes("powershell")) {
+      defaultTable = "terminal_keywords";
+      defaultValue = visit.application;
+    }
+
+    setSelectedTargetTable(defaultTable);
+    setTargetValue(defaultValue);
+    setRuleCategory(tableCategories[defaultTable] || "Study");
+  };
+
+  const handleSaveRule = async () => {
+    if (!selectedVisitForModal || !targetValue.trim()) return;
+
+    try {
+      await invoke("add_classification_rule_and_update_week", {
+        tableName: selectedTargetTable,
+        value: targetValue.trim(),
+        category: ruleCategory,
+        dateStr: selectedVisitForModal.start_time.split("T")[0]
+      });
+      
+      setSelectedVisitForModal(null);
+      loadTimeline();
+    } catch (e) {
+      alert("Failed to save categorization rule: " + e);
+    }
+  };
+
   useEffect(() => {
     loadTimeline();
   }, [date, page]);
@@ -117,9 +176,33 @@ export default function Timeline() {
               <div className="timeline-content">
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
                   <span style={{ fontWeight: "600", fontSize: "0.95rem" }}>{visit.application}</span>
-                  <span className={`badge badge-${visit.category.toLowerCase()}`} style={{ height: "fit-content" }}>
-                    {visit.category}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span className={`badge badge-${visit.category.toLowerCase()}`} style={{ height: "fit-content" }}>
+                      {visit.category}
+                    </span>
+                    {visit.category.toLowerCase() === "other" && (
+                      <button
+                        onClick={() => handleAddCategoryClick(visit)}
+                        title="Add Custom Category Rule"
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          background: "var(--accent-color)",
+                          color: "white",
+                          border: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {visit.website && (
                   <div style={{ fontSize: "0.85rem", color: "var(--accent-color)", fontWeight: "500", marginBottom: "0.25rem" }}>
@@ -140,6 +223,84 @@ export default function Timeline() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Custom Categorization Rules Popup Modal */}
+      {selectedVisitForModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "450px" }}>
+            <h4 style={{ fontWeight: "700", marginBottom: "1rem", color: "var(--accent-color)" }}>
+              Categorize Activity Rule
+            </h4>
+            
+            <div style={{ padding: "0.75rem", backgroundColor: "var(--bg-tertiary)", borderRadius: "4px", marginBottom: "1rem", fontSize: "0.85rem" }}>
+              <div style={{ marginBottom: "0.25rem" }}><strong>App:</strong> {selectedVisitForModal.application}</div>
+              {selectedVisitForModal.website && <div style={{ marginBottom: "0.25rem" }}><strong>Website:</strong> {selectedVisitForModal.website}</div>}
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <strong>Title:</strong> {selectedVisitForModal.title}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                  Rule Table Target
+                </label>
+                <select
+                  value={selectedTargetTable}
+                  onChange={(e) => handleTableChange(e.target.value)}
+                  className="input-field"
+                  style={{ width: "100%" }}
+                >
+                  <option value="coding_apps">Coding Applications</option>
+                  <option value="study_apps">Study Applications</option>
+                  <option value="entertainment_apps">Entertainment Applications</option>
+                  <option value="study_websites">Study Websites</option>
+                  <option value="social_websites">Social Websites</option>
+                  <option value="entertainment_websites">Entertainment Websites</option>
+                  <option value="youtube_study_keywords">YouTube Study Keywords</option>
+                  <option value="youtube_entertainment_keywords">YouTube Entertainment Keywords</option>
+                  <option value="terminal_keywords">Terminal Keywords</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                  Keyword/Value Match Rule
+                </label>
+                <input
+                  type="text"
+                  value={targetValue}
+                  onChange={(e) => setTargetValue(e.target.value)}
+                  className="input-field"
+                  style={{ width: "100%" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                  Category assigned
+                </label>
+                <input
+                  type="text"
+                  value={ruleCategory}
+                  disabled
+                  className="input-field"
+                  style={{ width: "100%", opacity: 0.7, cursor: "not-allowed" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+              <button onClick={() => setSelectedVisitForModal(null)} className="btn btn-secondary">
+                Cancel
+              </button>
+              <button onClick={handleSaveRule} className="btn btn-primary">
+                Add Rule & Recategorize Week
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

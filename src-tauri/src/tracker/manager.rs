@@ -3,7 +3,7 @@ use chrono::Local;
 use crate::classifier::classifier::classify;
 use crate::database::repository::save_session;
 use crate::database::cleanup::clean_old_visits_if_sunday;
-use crate::tracker::foreground::get_active_window_title;
+use crate::tracker::foreground::get_active_window_info;
 use crate::tracker::parser::parse_window;
 use crate::tracker::session::Session;
 
@@ -64,11 +64,11 @@ pub fn start_tracker() {
 
     loop {
         if IS_TRACKING.load(Ordering::Relaxed) {
-            if let Some(window) = get_active_window_title() {
+            if let Some((window, process_name)) = get_active_window_info() {
                 let cleaned = clean_window_title(&window);
 
                 // Parse only once
-                let parsed = parse_window(&cleaned);
+                let parsed = parse_window(&cleaned, &process_name);
 
                 let category = classify(&cleaned);
 
@@ -129,6 +129,7 @@ pub fn start_tracker() {
                         parsed.website.clone(),
                         parsed.title.clone(),
                         category.clone(),
+                        parsed.activity_key.clone(),
                     );
 
                     println!("\n--------------------------------------");

@@ -1,10 +1,9 @@
 use chrono::{Duration, Local, NaiveDate, Datelike};
 use std::sync::atomic::Ordering;
-use rusqlite::params;
 
-mod tracker;
-mod classifier;
-mod database;
+pub mod tracker;
+pub mod classifier;
+pub mod database;
 
 // Helper to calculate date ranges for dashboard views
 fn get_date_range(range_type: &str, offset: i32) -> (NaiveDate, NaiveDate) {
@@ -73,20 +72,36 @@ fn get_weekly_summary(range_type: String, offset: i32) -> Vec<serde_json::Value>
     
     let mut result = Vec::new();
     let mut current = start;
+    
+    let mut cat_stmt = conn.prepare(
+        "SELECT category, COALESCE(SUM(total_duration), 0) as dur 
+         FROM activities 
+         WHERE day_key = ? 
+         GROUP BY category 
+         ORDER BY dur DESC"
+    ).unwrap();
+
     while current <= end {
         let date_str = current.format("%Y-%m-%d").to_string();
         let day_name = current.format("%a").to_string();
         
-        let duration: i64 = conn.query_row(
-            "SELECT COALESCE(SUM(total_duration), 0) FROM activities WHERE day_key = ?",
-            [&date_str],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let cat_rows = cat_stmt.query_map([&date_str], |row| {
+            Ok(serde_json::json!({
+                "category": row.get::<_, String>(0)?,
+                "duration": row.get::<_, i64>(1)?
+            }))
+        }).unwrap();
+        let categories: Vec<serde_json::Value> = cat_rows.filter_map(Result::ok).collect();
+        
+        let total_day_dur: i64 = categories.iter()
+            .map(|c| c["duration"].as_i64().unwrap_or(0))
+            .sum();
         
         result.push(serde_json::json!({
             "day_name": day_name,
             "date_str": date_str,
-            "duration": duration
+            "duration": total_day_dur,
+            "categories": categories
         }));
         
         current += Duration::days(1);
@@ -207,6 +222,84 @@ fn get_timeline(date: String, page: i64, limit: i64) -> serde_json::Value {
         "has_more": has_more
     })
 }
+#[tauri::command]
+fn add_classification_rule_and_update_week(
+    table_name: String,
+    value: String,
+    category: String,
+    date_str: String,
+) -> Result<(), String> {
+    let mut conn = database::sqlite::get_connection().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    // 1. Insert rule into reference table
+    tx.execute(
+        &format!("INSERT OR IGNORE INTO {} (value) VALUES (?)", table_name),
+        rusqlite::params![value],
+    ).map_err(|e| e.to_string())?;
+
+    // 2. Calculate Sunday and Saturday dates for the week of date_str
+    let date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
+        .map_err(|e| e.to_string())?;
+    
+    let offset_from_sunday = date.weekday().num_days_from_sunday() as i64;
+    let sunday = date - Duration::days(offset_from_sunday);
+    let saturday = sunday + Duration::days(6);
+
+    let sun_str = sunday.format("%Y-%m-%d").to_string();
+    let sat_str = saturday.format("%Y-%m-%d").to_string();
+
+    // 3. Update activities table
+    if table_name == "coding_apps" || table_name == "study_apps" {
+        tx.execute(
+            "UPDATE activities 
+             SET category = ? 
+             WHERE (application = ? OR application LIKE ?) 
+               AND category = 'Other' 
+               AND day_key BETWEEN ? AND ?",
+            rusqlite::params![
+                category,
+                value,
+                format!("%{}%", value),
+                sun_str,
+                sat_str
+            ],
+        ).map_err(|e| e.to_string())?;
+    } else if table_name == "study_websites" || table_name == "social_websites" || table_name == "entertainment_websites" {
+        tx.execute(
+            "UPDATE activities 
+             SET category = ? 
+             WHERE (website = ? OR website LIKE ?) 
+               AND category = 'Other' 
+               AND day_key BETWEEN ? AND ?",
+            rusqlite::params![
+                category,
+                value,
+                format!("%{}%", value),
+                sun_str,
+                sat_str
+            ],
+        ).map_err(|e| e.to_string())?;
+    } else {
+        tx.execute(
+            "UPDATE activities 
+             SET category = ? 
+             WHERE title LIKE ? 
+               AND category = 'Other' 
+               AND day_key BETWEEN ? AND ?",
+            rusqlite::params![
+                category,
+                format!("%{}%", value),
+                sun_str,
+                sat_str
+            ],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 fn get_today_timeline_strip(date: String) -> Vec<serde_json::Value> {
     let conn = database::sqlite::get_connection().expect("Database connection failed");
@@ -463,13 +556,10 @@ fn set_filter_active(enabled: bool) -> Result<(), String> {
 #[tauri::command]
 fn trigger_manual_cleanup() -> Result<usize, String> {
     let conn = database::sqlite::get_connection().map_err(|e| e.to_string())?;
-    let now = Local::now();
-    let today_start = now.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(Local).unwrap();
-    let today_start_rfc = today_start.to_rfc3339();
 
     let deleted_count = conn.execute(
-        "DELETE FROM activity_visits WHERE start_time < ?",
-        params![today_start_rfc],
+        "DELETE FROM activity_visits",
+        [],
     ).map_err(|e| e.to_string())?;
     
     Ok(deleted_count)
@@ -500,7 +590,8 @@ pub fn run() {
             set_autostart,
             set_filter_active,
             trigger_manual_cleanup,
-            get_today_timeline_strip
+            get_today_timeline_strip,
+            add_classification_rule_and_update_week
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

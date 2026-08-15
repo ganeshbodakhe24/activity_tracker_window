@@ -6,7 +6,7 @@ pub struct ParsedWindow {
     pub activity_key: String,
 }
 
-pub fn parse_window(window: &str) -> ParsedWindow {
+pub fn parse_window(window: &str, process_name: &str) -> ParsedWindow {
 
     // ---------------- Browser ----------------
 
@@ -55,14 +55,20 @@ pub fn parse_window(window: &str) -> ParsedWindow {
 
     // ---------------- Default ----------------
 
+    let app_name = if process_name.is_empty() || process_name == "Unknown" {
+        "Unknown".to_string()
+    } else {
+        process_name.to_string()
+    };
+
     ParsedWindow {
 
-        application: "Unknown".to_string(),
+        application: app_name.clone(),
 
         website: None,
 
         activity_key: generate_activity_key(
-            "Unknown",
+            &app_name,
             None,
             window,
         ),

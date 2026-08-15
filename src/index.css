@@ -66,6 +66,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 1.5rem 1rem;
+  flex-shrink: 0;
 }
 
 .logo-section {

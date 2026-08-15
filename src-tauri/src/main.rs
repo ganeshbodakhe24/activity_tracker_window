@@ -1,11 +1,7 @@
-mod tracker;
-mod classifier;
-mod database;
-
 fn main() {
-    // Spawn background activity tracking thread
+    // Spawn background activity tracking thread using the shared library module
     std::thread::spawn(|| {
-        tracker::manager::start_tracker();
+        activity_tracker_lib::tracker::manager::start_tracker();
     });
 
     // Run tauri frontend window loop

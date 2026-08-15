@@ -7,6 +7,7 @@ const REFERENCE_TABLES = [
   { value: "browsers", label: "Browsers List" },
   { value: "coding_apps", label: "Coding Applications" },
   { value: "study_apps", label: "Study Applications" },
+  { value: "entertainment_apps", label: "Entertainment Applications" },
   { value: "study_websites", label: "Study Websites" },
   { value: "social_websites", label: "Social Websites" },
   { value: "entertainment_websites", label: "Entertainment Websites" },

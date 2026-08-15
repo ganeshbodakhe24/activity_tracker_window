@@ -16,7 +16,7 @@ pub fn get_connection() -> Result<Connection> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
 
     let create_schemas = format!(
-        "{}{}{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}{}{}{}{}",
         CREATE_ACTIVITIES_TABLE,
         CREATE_ACTIVITY_VISITS_TABLE,
         CREATE_STUDY_APPS_TABLE,
@@ -27,7 +27,8 @@ pub fn get_connection() -> Result<Connection> {
         CREATE_YOUTUBE_STUDY_KEYWORDS_TABLE,
         CREATE_YOUTUBE_ENTERTAINMENT_KEYWORDS_TABLE,
         CREATE_TERMINAL_KEYWORDS_TABLE,
-        CREATE_CODING_APPS_TABLE
+        CREATE_CODING_APPS_TABLE,
+        CREATE_ENTERTAINMENT_APPS_TABLE
     );
 
     conn.execute_batch(&create_schemas)?;
@@ -42,6 +43,7 @@ pub fn get_connection() -> Result<Connection> {
     seed_table_if_empty(&conn, "youtube_study_keywords", YOUTUBE_STUDY_KEYWORDS)?;
     seed_table_if_empty(&conn, "youtube_entertainment_keywords", YOUTUBE_ENTERTAINMENT_KEYWORDS)?;
     seed_table_if_empty(&conn, "terminal_keywords", TERMINAL_KEYWORDS)?;
+    seed_table_if_empty(&conn, "entertainment_apps", ENTERTAINMENT_APPS)?;
 
     Ok(conn)
 }

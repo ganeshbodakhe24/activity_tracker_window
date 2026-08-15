@@ -18,11 +18,7 @@ pub fn save_session(session: &Session) {
     );
 
     let website = session.website.clone().unwrap_or_default();
-    let activity_key = format!(
-        "{}_{}",
-        website.to_lowercase(),
-        session.title.to_lowercase()
-    );
+    let activity_key = &session.activity_key;
 
     // 1. Find or create the activity summary row
     tx.execute(
@@ -148,4 +144,8 @@ pub fn get_terminal_keywords() -> Vec<String> {
 
 pub fn get_coding_apps() -> Vec<String> {
     load_keywords_from_table("coding_apps")
+}
+
+pub fn get_entertainment_apps() -> Vec<String> {
+    load_keywords_from_table("entertainment_apps")
 }

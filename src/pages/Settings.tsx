@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon, Database, Sparkles } from "lucide-react";
+import { Settings as SettingsIcon, Database, Sparkles, AlertTriangle } from "lucide-react";
 
 const invoke = (window as any).__TAURI__?.core?.invoke || (() => Promise.resolve());
 
@@ -8,6 +8,7 @@ export default function Settings() {
   const [filterActive, setFilterActive] = useState(true);
   const [cleaning, setCleaning] = useState(false);
   const [prunedCount, setPrunedCount] = useState<number | null>(null);
+  const [showPruneConfirm, setShowPruneConfirm] = useState(false);
 
   useEffect(() => {
     // Fetch settings state from Rust on load
@@ -41,7 +42,12 @@ export default function Settings() {
     }
   };
 
-  const triggerPruning = async () => {
+  const triggerPruning = () => {
+    setShowPruneConfirm(true);
+  };
+
+  const executePruning = async () => {
+    setShowPruneConfirm(false);
     setCleaning(true);
     setPrunedCount(null);
     try {
@@ -142,6 +148,28 @@ export default function Settings() {
           </p>
         </div>
       </div>
+      {/* Custom Confirmation Popup Warning Modal */}
+      {showPruneConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ borderColor: "var(--danger-color)" }}>
+            <h4 style={{ fontWeight: "700", marginBottom: "1.5rem", color: "var(--danger-color)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <AlertTriangle size={24} />
+              Confirm Database Cleanup
+            </h4>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "1.5rem", lineHeight: "1.4" }}>
+              WARNING: This will permanently delete ALL detailed activity session logs (activity_visits) from your SQLite database. Your aggregated dashboard dashboard metrics will not be affected.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+              <button onClick={() => setShowPruneConfirm(false)} className="btn btn-secondary">
+                Cancel
+              </button>
+              <button onClick={executePruning} className="btn btn-danger">
+                Proceed Wiping Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

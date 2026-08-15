@@ -6,6 +6,7 @@ pub struct Session {
     pub website: Option<String>,
     pub title: String,
     pub category: String,
+    pub activity_key: String,
 
     pub start_time: DateTime<Local>,
     pub end_time: Option<DateTime<Local>>,
@@ -17,12 +18,14 @@ impl Session {
         website: Option<String>,
         title: String,
         category: String,
+        activity_key: String,
     ) -> Self {
         Self {
             application,
             website,
             title,
             category,
+            activity_key,
             start_time: Local::now(),
             end_time: None,
         }
