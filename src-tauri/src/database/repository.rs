@@ -32,6 +32,9 @@ pub fn save_session(session: &Session) {
         )
         VALUES
         (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(day_key, activity_key) DO UPDATE SET
+            total_duration = total_duration + excluded.total_duration,
+            visit_count = visit_count + 1
         ",
         params![
             day_key,
@@ -48,7 +51,7 @@ pub fn save_session(session: &Session) {
             1
         ],
     )
-    .expect("Insert failed");
+    .expect("Insert/Update failed");
 
     println!("Activity Saved");
 }
