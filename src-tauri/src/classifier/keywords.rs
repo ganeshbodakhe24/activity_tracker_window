@@ -1,7 +1,7 @@
 pub const CODING_APPS: &[&str] = &[
     "visual studio code", "cursor", "intellij", "pycharm", "eclipse",
     "clion", "webstorm", "rider", "sublime text", "notepad++",
-    "android studio", "vscode"
+    "android studio", "vscode","Antigravity"
 ];
 
 pub const STUDY_APPS: &[&str] = &[

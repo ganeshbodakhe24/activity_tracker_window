@@ -11,9 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
-
-activity_tracker.db
-
+activity_tracker.db*
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*.local
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

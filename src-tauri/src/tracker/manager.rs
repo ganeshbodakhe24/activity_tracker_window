@@ -8,6 +8,7 @@ use crate::tracker::parser::parse_window;
 use crate::tracker::session::Session;
 
 use std::{thread, time::Duration};
+use std::sync::{Arc, Mutex};
 
 fn clean_window_title(title: &str) -> String {
     let lower = title.trim().to_lowercase();
@@ -35,7 +36,9 @@ fn clean_window_title(title: &str) -> String {
     title.to_string()
 }
 
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub static IS_TRACKING: AtomicBool = AtomicBool::new(true);
 
 pub fn start_tracker() {
     println!("Activity Tracker Started...\n");
@@ -60,88 +63,104 @@ pub fn start_tracker() {
     .expect("Error setting Ctrl-C handler");
 
     loop {
-        if let Some(window) = get_active_window_title() {
-            let cleaned = clean_window_title(&window);
+        if IS_TRACKING.load(Ordering::Relaxed) {
+            if let Some(window) = get_active_window_title() {
+                let cleaned = clean_window_title(&window);
 
-            // Parse only once
-            let parsed = parse_window(&cleaned);
+                // Parse only once
+                let parsed = parse_window(&cleaned);
 
-            let category = classify(&cleaned);
+                let category = classify(&cleaned);
 
-            // Start a new session only if something actually changed
-            let changed = {
-                if let Ok(session_opt) = current_session.lock() {
-                    match &*session_opt {
-                        Some(session) => {
-                            session.application != parsed.application
-                                || session.website != parsed.website
-                                || session.title != parsed.title
+                // Start a new session only if something actually changed
+                let changed = {
+                    if let Ok(session_opt) = current_session.lock() {
+                        match &*session_opt {
+                            Some(session) => {
+                                session.application != parsed.application
+                                    || session.website != parsed.website
+                                    || session.title != parsed.title
+                            }
+                            None => true,
                         }
-                        None => true,
-                    }
-                } else {
-                    false
-                }
-            };
-
-            if changed {
-                // End previous session
-                let prev_session = {
-                    if let Ok(mut session_opt) = current_session.lock() {
-                        session_opt.take()
                     } else {
-                        None
+                        false
                     }
                 };
 
-                if let Some(mut session) = prev_session {
-                    session.end();
+                if changed {
+                    // End previous session
+                    let prev_session = {
+                        if let Ok(mut session_opt) = current_session.lock() {
+                            session_opt.take()
+                        } else {
+                            None
+                        }
+                    };
 
-                    save_session(&session);
+                    if let Some(mut session) = prev_session {
+                        session.end();
 
-                    let duration = session.duration();
+                        save_session(&session);
 
-                    println!("\n======================================");
-                    println!("SESSION ENDED");
-                    println!("Application : {}", session.application);
-                    println!("Website     : {:?}", session.website);
-                    println!("Title       : {}", session.title);
-                    println!("Category    : {}", session.category);
+                        let duration = session.duration();
+
+                        println!("\n======================================");
+                        println!("SESSION ENDED");
+                        println!("Application : {}", session.application);
+                        println!("Website     : {:?}", session.website);
+                        println!("Title       : {}", session.title);
+                        println!("Category    : {}", session.category);
+                        println!(
+                            "Started At  : {}",
+                            session.start_time.format("%H:%M:%S")
+                        );
+                        println!(
+                            "Ended At    : {}",
+                            session.end_time.unwrap().format("%H:%M:%S")
+                        );
+                        println!("Duration    : {} sec", duration.num_seconds());
+                        println!("======================================");
+                    }
+
+                    // Start new session
+                    let session = Session::new(
+                        parsed.application.clone(),
+                        parsed.website.clone(),
+                        parsed.title.clone(),
+                        category.clone(),
+                    );
+
+                    println!("\n--------------------------------------");
+                    println!("SESSION STARTED");
+                    println!("Application : {}", parsed.application);
+                    println!("Website     : {:?}", parsed.website);
+                    println!("Title       : {}", parsed.title);
+                    println!("Category    : {}", category);
                     println!(
                         "Started At  : {}",
-                        session.start_time.format("%H:%M:%S")
+                        Local::now().format("%H:%M:%S")
                     );
-                    println!(
-                        "Ended At    : {}",
-                        session.end_time.unwrap().format("%H:%M:%S")
-                    );
-                    println!("Duration    : {} sec", duration.num_seconds());
-                    println!("======================================");
+                    println!("--------------------------------------");
+
+                    if let Ok(mut session_opt) = current_session.lock() {
+                        *session_opt = Some(session);
+                    }
                 }
-
-                // Start new session
-                let session = Session::new(
-                    parsed.application.clone(),
-                    parsed.website.clone(),
-                    parsed.title.clone(),
-                    category.clone(),
-                );
-
-                println!("\n--------------------------------------");
-                println!("SESSION STARTED");
-                println!("Application : {}", parsed.application);
-                println!("Website     : {:?}", parsed.website);
-                println!("Title       : {}", parsed.title);
-                println!("Category    : {}", category);
-                println!(
-                    "Started At  : {}",
-                    Local::now().format("%H:%M:%S")
-                );
-                println!("--------------------------------------");
-
+            }
+        } else {
+            // Paused: finalize active session if any
+            let prev_session = {
                 if let Ok(mut session_opt) = current_session.lock() {
-                    *session_opt = Some(session);
+                    session_opt.take()
+                } else {
+                    None
                 }
+            };
+            if let Some(mut session) = prev_session {
+                session.end();
+                save_session(&session);
+                println!("Session ended because tracking was paused.");
             }
         }
 
