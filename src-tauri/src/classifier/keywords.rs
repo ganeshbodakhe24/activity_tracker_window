@@ -52,6 +52,7 @@ pub const STUDY_WEBSITES: &[&str] = &[
     "react.dev",
     "rust-lang",
     "docs.microsoft",
+    "pdf",
     "developer.mozilla",
 ];
 
@@ -148,4 +149,4 @@ pub const ENTERTAINMENT_APPS: &[&str] = &[
 
 pub const IGNORED_APPS: &[&str] = &[
     "LockApp.exe",
-];
+];

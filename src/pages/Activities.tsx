@@ -36,11 +36,31 @@ export default function Activities() {
   const [visits, setVisits] = useState<VisitDetail[]>([]);
 
   useEffect(() => {
-    loadActivities();
+    loadActivities(false);
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadActivities(true);
+      }
+    }, 5000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadActivities(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [date, search, categoryFilter, page]);
 
-  const loadActivities = async () => {
-    setLoading(true);
+  const loadActivities = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const res = await invoke("get_activities", {
         date,
@@ -56,7 +76,9 @@ export default function Activities() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 

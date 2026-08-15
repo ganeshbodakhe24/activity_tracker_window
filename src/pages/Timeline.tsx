@@ -81,11 +81,31 @@ export default function Timeline() {
   };
 
   useEffect(() => {
-    loadTimeline();
+    loadTimeline(false);
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadTimeline(true);
+      }
+    }, 5000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadTimeline(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [date, page]);
 
-  const loadTimeline = async () => {
-    setLoading(true);
+  const loadTimeline = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const res = await invoke("get_timeline", { date, page, limit: 30 });
       if (res) {
@@ -95,7 +115,9 @@ export default function Timeline() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 

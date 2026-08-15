@@ -66,13 +66,33 @@ export default function Dashboard() {
     return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
   };
 
-  // Load weekly data on mount and range/offset change
+  // Load weekly data on mount and range/offset change with live polling when visible
   useEffect(() => {
-    loadData();
+    loadData(false);
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadData(true);
+      }
+    }, 5000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadData(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [selectedRange, selectedDayOffset]);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       // Call Rust commands to get weekly statistics
@@ -124,7 +144,9 @@ export default function Dashboard() {
     } catch (e) {
       setError("Unable to load activity data. Please try again.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
