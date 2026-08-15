@@ -205,7 +205,7 @@ pub fn start_tracker() {
                         println!("Session ended because active application is ignored: {}", process_name);
                     }
 
-                    thread::sleep(Duration::from_secs(2));
+                    thread::sleep(Duration::from_secs(5));
                     continue;
                 }
 
@@ -327,7 +327,7 @@ pub fn start_tracker() {
             }
         }
 
-        // Check every 2 seconds
-        thread::sleep(Duration::from_secs(2));
+        // Check every 5 seconds
+        thread::sleep(Duration::from_secs(5));
     }
 }

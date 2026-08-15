@@ -230,7 +230,7 @@ export default function Dashboard() {
         >
           <AlertTriangle size={20} />
           <span>{error}</span>
-          <button onClick={loadData} className="btn btn-primary" style={{ marginLeft: "auto", padding: "0.25rem 0.75rem" }}>
+          <button onClick={() => loadData()} className="btn btn-primary" style={{ marginLeft: "auto", padding: "0.25rem 0.75rem" }}>
             Retry
           </button>
         </div>
