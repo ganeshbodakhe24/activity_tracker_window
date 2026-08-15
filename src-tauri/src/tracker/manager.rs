@@ -2,6 +2,7 @@ use chrono::Local;
 
 use crate::classifier::classifier::classify;
 use crate::database::repository::save_session;
+use crate::database::cleanup::clean_old_visits_if_sunday;
 use crate::tracker::foreground::get_active_window_title;
 use crate::tracker::parser::parse_window;
 use crate::tracker::session::Session;
@@ -38,6 +39,9 @@ use std::sync::{Arc, Mutex};
 
 pub fn start_tracker() {
     println!("Activity Tracker Started...\n");
+
+    // Clean up detailed visits on Sunday
+    clean_old_visits_if_sunday();
 
     let current_session = Arc::new(Mutex::new(None::<Session>));
     let current_session_clone = Arc::clone(&current_session);
