@@ -29,6 +29,10 @@ interface WeeklyStat {
   day_name: string;
   date_str: string;
   duration: number;
+  categories?: Array<{
+    category: string;
+    duration: number;
+  }>;
 }
 
 export default function Dashboard() {
