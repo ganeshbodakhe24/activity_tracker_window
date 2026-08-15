@@ -145,3 +145,7 @@ pub const ENTERTAINMENT_APPS: &[&str] = &[
     "vlc", "spotify", "steam", "netflix", "prime video", "disney+", "hotstar",
     "vlc.exe", "spotify.exe", "steam.exe", "discord.exe", "epicgames.exe"
 ];
+
+pub const IGNORED_APPS: &[&str] = &[
+    "LockApp.exe",
+];

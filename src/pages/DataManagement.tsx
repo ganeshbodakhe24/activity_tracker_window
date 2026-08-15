@@ -8,6 +8,7 @@ const REFERENCE_TABLES = [
   { value: "coding_apps", label: "Coding Applications" },
   { value: "study_apps", label: "Study Applications" },
   { value: "entertainment_apps", label: "Entertainment Applications" },
+  { value: "ignored_apps", label: "Ignored Applications" },
   { value: "study_websites", label: "Study Websites" },
   { value: "social_websites", label: "Social Websites" },
   { value: "entertainment_websites", label: "Entertainment Websites" },

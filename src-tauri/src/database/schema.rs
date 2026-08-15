@@ -95,3 +95,11 @@ pub const CREATE_ENTERTAINMENT_APPS_TABLE: &str = "
         value TEXT NOT NULL UNIQUE
     );
 ";
+
+pub const CREATE_IGNORED_APPS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS ignored_apps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        value TEXT NOT NULL UNIQUE
+    );
+";
+

@@ -46,7 +46,7 @@ fn validate_table_name(table: &str) -> Result<(), String> {
         "browsers", "coding_apps", "study_apps", "study_websites",
         "social_websites", "entertainment_websites",
         "youtube_study_keywords", "youtube_entertainment_keywords",
-        "terminal_keywords"
+        "terminal_keywords", "ignored_apps", "entertainment_apps"
     ];
     if allowed.contains(&table) {
         Ok(())

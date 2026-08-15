@@ -39,9 +39,130 @@ fn clean_window_title(title: &str) -> String {
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub static IS_TRACKING: AtomicBool = AtomicBool::new(true);
+pub static IS_SCREEN_ON: AtomicBool = AtomicBool::new(true);
+
+unsafe extern "system" fn power_wnd_proc(
+    hwnd: windows::Win32::Foundation::HWND,
+    msg: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::UI::WindowsAndMessaging::{DefWindowProcW, WM_POWERBROADCAST, PostQuitMessage, WM_DESTROY, PBT_POWERSETTINGCHANGE};
+    use windows::Win32::System::Power::POWERBROADCAST_SETTING;
+    use windows::Win32::System::SystemServices::GUID_MONITOR_POWER_ON;
+
+    match msg {
+        WM_POWERBROADCAST => {
+            if wparam.0 as u32 == PBT_POWERSETTINGCHANGE {
+                let settings = &*(lparam.0 as *const POWERBROADCAST_SETTING);
+                if settings.PowerSetting == GUID_MONITOR_POWER_ON {
+                    let state = settings.Data[0];
+                    let is_on = state != 0;
+                    IS_SCREEN_ON.store(is_on, Ordering::Relaxed);
+                    println!("Screen power state changed: {}", if is_on { "ON" } else { "OFF" });
+                }
+            }
+            windows::Win32::Foundation::LRESULT(1)
+        }
+        WM_DESTROY => {
+            PostQuitMessage(0);
+            windows::Win32::Foundation::LRESULT(0)
+        }
+        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+    }
+}
+
+fn spawn_power_notifier() {
+    std::thread::spawn(|| {
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, RegisterClassW, WNDCLASSW, CS_HREDRAW, CS_VREDRAW,
+            WINDOW_EX_STYLE, WINDOW_STYLE, GetMessageW, DispatchMessageW, TranslateMessage, MSG, DestroyWindow
+        };
+        use windows::core::w;
+
+        const DEVICE_NOTIFY_WINDOW_HANDLE: u32 = 0;
+
+        unsafe {
+            let class_name = w!("ActivityTrackerPowerNotifier");
+            let wc = WNDCLASSW {
+                style: CS_HREDRAW | CS_VREDRAW,
+                lpfnWndProc: Some(power_wnd_proc),
+                lpszClassName: class_name,
+                ..Default::default()
+            };
+
+            if RegisterClassW(&wc) == 0 {
+                eprintln!("Failed to register power notifier window class");
+                return;
+            }
+
+            let hwnd = CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                class_name,
+                w!("PowerNotifier"),
+                WINDOW_STYLE::default(),
+                0,
+                0,
+                0,
+                0,
+                HWND::default(),
+                None,
+                None,
+                None,
+            );
+
+            let hwnd = match hwnd {
+                Ok(h) => h,
+                Err(e) => {
+                    eprintln!("Failed to create power notifier window: {:?}", e);
+                    return;
+                }
+            };
+
+            if hwnd.0.is_null() {
+                eprintln!("Failed to create power notifier window (handle was null)");
+                return;
+            }
+
+            // Register for monitor power notifications
+            use windows::Win32::System::Power::RegisterPowerSettingNotification;
+            use windows::Win32::System::SystemServices::GUID_MONITOR_POWER_ON;
+            use windows::Win32::UI::WindowsAndMessaging::REGISTER_NOTIFICATION_FLAGS;
+            let reg_handle = RegisterPowerSettingNotification(
+                hwnd,
+                &GUID_MONITOR_POWER_ON,
+                REGISTER_NOTIFICATION_FLAGS(DEVICE_NOTIFY_WINDOW_HANDLE),
+            );
+
+            let reg_ok = match reg_handle {
+                Ok(h) => Some(h),
+                Err(e) => {
+                    eprintln!("Failed to register monitor power notification: {:?}", e);
+                    None
+                }
+            };
+
+            let mut msg = MSG::default();
+            while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+                let _ = TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+
+            if let Some(h) = reg_ok {
+                use windows::Win32::System::Power::UnregisterPowerSettingNotification;
+                let _ = UnregisterPowerSettingNotification(h);
+            }
+            let _ = DestroyWindow(hwnd);
+        }
+    });
+}
 
 pub fn start_tracker() {
     println!("Activity Tracker Started...\n");
+
+    // Spawn monitor power state notifier
+    spawn_power_notifier();
 
     // Clean up detailed visits on Sunday
     clean_old_visits_if_sunday();
@@ -63,8 +184,31 @@ pub fn start_tracker() {
     .expect("Error setting Ctrl-C handler");
 
     loop {
-        if IS_TRACKING.load(Ordering::Relaxed) {
+        if IS_TRACKING.load(Ordering::Relaxed) && IS_SCREEN_ON.load(Ordering::Relaxed) {
             if let Some((window, process_name)) = get_active_window_info() {
+                // Check if the application is in ignored_apps
+                let ignored_apps = crate::database::repository::get_ignored_apps();
+                let is_ignored = ignored_apps.iter().any(|app| app.eq_ignore_ascii_case(&process_name));
+
+                if is_ignored {
+                    // Finalize active session if any
+                    let prev_session = {
+                        if let Ok(mut session_opt) = current_session.lock() {
+                            session_opt.take()
+                        } else {
+                            None
+                        }
+                    };
+                    if let Some(mut session) = prev_session {
+                        session.end();
+                        save_session(&session);
+                        println!("Session ended because active application is ignored: {}", process_name);
+                    }
+
+                    thread::sleep(Duration::from_secs(2));
+                    continue;
+                }
+
                 let cleaned = clean_window_title(&window);
 
                 // Parse only once
@@ -148,9 +292,23 @@ pub fn start_tracker() {
                         *session_opt = Some(session);
                     }
                 }
+            } else {
+                // No active window (e.g. system locked)
+                let prev_session = {
+                    if let Ok(mut session_opt) = current_session.lock() {
+                        session_opt.take()
+                    } else {
+                        None
+                    }
+                };
+                if let Some(mut session) = prev_session {
+                    session.end();
+                    save_session(&session);
+                    println!("Session ended because no active window was detected (possibly system locked).");
+                }
             }
         } else {
-            // Paused: finalize active session if any
+            // Paused or screen is off: finalize active session if any
             let prev_session = {
                 if let Ok(mut session_opt) = current_session.lock() {
                     session_opt.take()
@@ -161,7 +319,11 @@ pub fn start_tracker() {
             if let Some(mut session) = prev_session {
                 session.end();
                 save_session(&session);
-                println!("Session ended because tracking was paused.");
+                if !IS_SCREEN_ON.load(Ordering::Relaxed) {
+                    println!("Session ended because PC screen is off.");
+                } else {
+                    println!("Session ended because tracking was paused.");
+                }
             }
         }
 

@@ -149,3 +149,7 @@ pub fn get_coding_apps() -> Vec<String> {
 pub fn get_entertainment_apps() -> Vec<String> {
     load_keywords_from_table("entertainment_apps")
 }
+
+pub fn get_ignored_apps() -> Vec<String> {
+    load_keywords_from_table("ignored_apps")
+}
