@@ -34,10 +34,26 @@ fn clean_window_title(title: &str) -> String {
     title.to_string()
 }
 
+use std::sync::{Arc, Mutex};
+
 pub fn start_tracker() {
     println!("Activity Tracker Started...\n");
 
-    let mut current_session: Option<Session> = None;
+    let current_session = Arc::new(Mutex::new(None::<Session>));
+    let current_session_clone = Arc::clone(&current_session);
+
+    ctrlc::set_handler(move || {
+        println!("\nShutting down Activity Tracker... finalizing active session.");
+        if let Ok(mut session_opt) = current_session_clone.lock() {
+            if let Some(mut session) = session_opt.take() {
+                session.end();
+                save_session(&session);
+                println!("Final session saved.");
+            }
+        }
+        std::process::exit(0);
+    })
+    .expect("Error setting Ctrl-C handler");
 
     loop {
         if let Some(window) = get_active_window_title() {
@@ -49,18 +65,32 @@ pub fn start_tracker() {
             let category = classify(&cleaned);
 
             // Start a new session only if something actually changed
-            let changed = match &current_session {
-                Some(session) => {
-                    session.application != parsed.application
-                        || session.website != parsed.website
-                        || session.title != parsed.title
+            let changed = {
+                if let Ok(session_opt) = current_session.lock() {
+                    match &*session_opt {
+                        Some(session) => {
+                            session.application != parsed.application
+                                || session.website != parsed.website
+                                || session.title != parsed.title
+                        }
+                        None => true,
+                    }
+                } else {
+                    false
                 }
-                None => true,
             };
 
             if changed {
                 // End previous session
-                if let Some(mut session) = current_session.take() {
+                let prev_session = {
+                    if let Ok(mut session_opt) = current_session.lock() {
+                        session_opt.take()
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(mut session) = prev_session {
                     session.end();
 
                     save_session(&session);
@@ -105,7 +135,9 @@ pub fn start_tracker() {
                 );
                 println!("--------------------------------------");
 
-                current_session = Some(session);
+                if let Ok(mut session_opt) = current_session.lock() {
+                    *session_opt = Some(session);
+                }
             }
         }
 

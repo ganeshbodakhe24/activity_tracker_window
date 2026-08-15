@@ -1,3 +1,9 @@
+pub const CODING_APPS: &[&str] = &[
+    "visual studio code", "cursor", "intellij", "pycharm", "eclipse",
+    "clion", "webstorm", "rider", "sublime text", "notepad++",
+    "android studio", "vscode"
+];
+
 pub const STUDY_APPS: &[&str] = &[
     "Code.exe",                 // VS Code
     "idea64.exe",               // IntelliJ
