@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   TimelineEntry,
   TABLE_CATEGORIES,
@@ -6,15 +6,29 @@ import {
   TimelineList,
   CategorizeRuleModal,
 } from "../components/timeline";
+import { getLocalDateString, useCurrentDate } from "../utils/dateUtils";
 
 const invoke = (window as any).__TAURI__?.core?.invoke || (() => Promise.resolve());
 
 export default function Timeline() {
-  const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const currentToday = useCurrentDate();
+  const [date, setDate] = useState<string>(() => getLocalDateString());
+  const prevTodayRef = useRef<string>(currentToday);
   const [visits, setVisits] = useState<TimelineEntry[]>([]);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
+
+  // When day rolls over at midnight, automatically advance date if user was looking at today
+  useEffect(() => {
+    if (prevTodayRef.current !== currentToday) {
+      if (date === prevTodayRef.current) {
+        setDate(currentToday);
+        setPage(1);
+      }
+      prevTodayRef.current = currentToday;
+    }
+  }, [currentToday, date]);
 
   const [selectedVisitForModal, setSelectedVisitForModal] = useState<TimelineEntry | null>(null);
   const [selectedTargetTable, setSelectedTargetTable] = useState("coding_apps");

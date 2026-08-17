@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 import {
   DailySummary,
@@ -13,12 +13,15 @@ import {
   WeeklyBarChart,
   DayDetails,
 } from "../components/dashboard";
+import { useCurrentDate } from "../utils/dateUtils";
 
 const invoke = (window as any).__TAURI__?.core?.invoke || (() => Promise.resolve());
 
 export default function Dashboard() {
-  const [selectedRange, setSelectedRange] = useState<string>("This Week");
-  const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0); // weeks offset
+  const currentToday = useCurrentDate();
+  const prevTodayRef = useRef<string>(currentToday);
+  const [selectedRange, setSelectedRange] = useState<string>("Today");
+  const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0); // offset
   const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,13 +37,23 @@ export default function Dashboard() {
   const [weeklyData, setWeeklyData] = useState<WeeklyStat[]>([]);
 
   // Selected day breakdown details
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(
-    new Date().getDay() === 0 ? 6 : new Date().getDay() - 1
-  );
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [appUsage, setAppUsage] = useState<AppUsage[]>([]);
   const [categoryUsage, setCategoryUsage] = useState<CategoryUsage[]>([]);
   const [websiteUsage, setWebsiteUsage] = useState<WebsiteUsage[]>([]);
   const [todayVisits, setTodayVisits] = useState<TodayVisit[]>([]);
+
+  // When day rolls over at midnight, refresh data and sync indices
+  useEffect(() => {
+    if (prevTodayRef.current !== currentToday) {
+      prevTodayRef.current = currentToday;
+      if (selectedRange === "This Week" && selectedDayOffset === 0) {
+        const todayDayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+        setSelectedDayIndex(todayDayIndex);
+      }
+      loadData(true);
+    }
+  }, [currentToday]);
 
   // Load weekly data on mount and range/offset change with live polling when visible
   useEffect(() => {

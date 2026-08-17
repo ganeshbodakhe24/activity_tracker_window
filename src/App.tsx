@@ -5,6 +5,7 @@ import Timeline from "./pages/Timeline";
 import Activities from "./pages/Activities";
 import DataManagement from "./pages/DataManagement";
 import Settings from "./pages/Settings";
+import { useCurrentDate } from "./utils/dateUtils";
 import {
   LayoutDashboard,
   Clock,
@@ -22,6 +23,7 @@ const invoke = (window as any).__TAURI__?.core?.invoke || (() => Promise.resolve
 const listen = (window as any).__TAURI__?.event?.listen || (() => () => {});
 
 export default function App() {
+  useCurrentDate(); // Kept active for day changes across the app
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [isTracking, setIsTracking] = useState(true);
   const [currentApp, setCurrentApp] = useState<string>("");

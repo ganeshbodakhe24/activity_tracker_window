@@ -538,16 +538,91 @@ fn delete_activity_data(mode: String, from: String, to: String) -> Result<(), St
     Ok(())
 }
 
+#[cfg(windows)]
+fn is_autostart_enabled_windows() -> bool {
+    use windows::Win32::System::Registry::{RegOpenKeyExW, RegQueryValueExW, RegCloseKey, HKEY_CURRENT_USER, KEY_READ, REG_VALUE_TYPE};
+    use windows::core::w;
+
+    unsafe {
+        let subkey = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
+        let mut hkey = windows::Win32::System::Registry::HKEY::default();
+        if RegOpenKeyExW(HKEY_CURRENT_USER, subkey, 0, KEY_READ, &mut hkey).is_ok() {
+            let value_name = w!("activity_tracker");
+            let mut reg_type = REG_VALUE_TYPE::default();
+            let mut size: u32 = 0;
+            let res = RegQueryValueExW(hkey, value_name, None, Some(&mut reg_type), None, Some(&mut size));
+            let _ = RegCloseKey(hkey);
+            res.is_ok() && size > 0
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn is_autostart_enabled_windows() -> bool {
+    false
+}
+
+#[cfg(windows)]
+fn set_autostart_windows(enabled: bool) -> Result<(), String> {
+    use windows::Win32::System::Registry::{
+        RegOpenKeyExW, RegSetValueExW, RegDeleteValueW, RegCloseKey,
+        HKEY_CURRENT_USER, KEY_WRITE, REG_SZ
+    };
+    use windows::core::w;
+
+    let subkey = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
+    let value_name = w!("activity_tracker");
+
+    unsafe {
+        let mut hkey = windows::Win32::System::Registry::HKEY::default();
+        RegOpenKeyExW(HKEY_CURRENT_USER, subkey, 0, KEY_WRITE, &mut hkey)
+            .ok()
+            .map_err(|e| format!("Failed to open registry key: {:?}", e))?;
+
+        if enabled {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let exe_str = format!("\"{}\"", exe.to_string_lossy());
+            let wide_exe: Vec<u16> = exe_str.encode_utf16().chain(std::iter::once(0)).collect();
+
+            let res = RegSetValueExW(
+                hkey,
+                value_name,
+                0,
+                REG_SZ,
+                Some(std::slice::from_raw_parts(
+                    wide_exe.as_ptr() as *const u8,
+                    wide_exe.len() * std::mem::size_of::<u16>(),
+                )),
+            );
+            let _ = RegCloseKey(hkey);
+            res.ok().map_err(|e| format!("Failed to set registry value: {:?}", e))?;
+        } else {
+            let _ = RegDeleteValueW(hkey, value_name);
+            let _ = RegCloseKey(hkey);
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn set_autostart_windows(_enabled: bool) -> Result<(), String> {
+    Ok(())
+}
+
 #[tauri::command]
 fn get_settings() -> serde_json::Value {
     serde_json::json!({
-        "autostart": false,
+        "autostart": is_autostart_enabled_windows(),
         "filter_active": true
     })
 }
 
 #[tauri::command]
 fn set_autostart(enabled: bool) -> Result<(), String> {
+    set_autostart_windows(enabled)?;
     println!("Autostart updated: {}", enabled);
     Ok(())
 }

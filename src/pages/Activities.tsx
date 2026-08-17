@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Activity,
   VisitDetail,
@@ -6,17 +6,31 @@ import {
   ActivityTable,
   ActivityVisitsDrawer,
 } from "../components/activities";
+import { getLocalDateString, useCurrentDate } from "../utils/dateUtils";
 
 const invoke = (window as any).__TAURI__?.core?.invoke || (() => Promise.resolve());
 
 export default function Activities() {
+  const currentToday = useCurrentDate();
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState<string>(() => getLocalDateString());
+  const prevTodayRef = useRef<string>(currentToday);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // When day rolls over at midnight, automatically advance date if user was looking at today
+  useEffect(() => {
+    if (prevTodayRef.current !== currentToday) {
+      if (date === prevTodayRef.current) {
+        setDate(currentToday);
+        setPage(1);
+      }
+      prevTodayRef.current = currentToday;
+    }
+  }, [currentToday, date]);
 
   // Selected activity drawer details
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);

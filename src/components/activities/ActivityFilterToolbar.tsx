@@ -1,5 +1,6 @@
 import React from "react";
 import { Search, Filter, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { isToday, shiftDateString, getLocalDateString } from "../../utils/dateUtils";
 
 interface ActivityFilterToolbarProps {
   search: string;
@@ -24,10 +25,13 @@ export const ActivityFilterToolbar: React.FC<ActivityFilterToolbarProps> = ({
   hasMore,
   onPageChange,
 }) => {
+  const isCurrentDay = isToday(date);
+  const todayStr = getLocalDateString();
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: "1rem", marginBottom: "1.5rem" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
       {/* Search Field */}
-      <div style={{ position: "relative" }}>
+      <div style={{ position: "relative", flex: "1 1 200px", minWidth: "180px" }}>
         <Search
           size={16}
           style={{
@@ -40,16 +44,16 @@ export const ActivityFilterToolbar: React.FC<ActivityFilterToolbarProps> = ({
         />
         <input
           type="text"
-          placeholder="Search activity, website, application..."
+          placeholder="Search activity, website, app..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="input-field"
-          style={{ paddingLeft: "2.25rem" }}
+          style={{ paddingLeft: "2.25rem", width: "100%" }}
         />
       </div>
 
       {/* Category Dropdown */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
         <Filter size={16} className="text-slate-400" />
         <select
           value={categoryFilter}
@@ -66,20 +70,51 @@ export const ActivityFilterToolbar: React.FC<ActivityFilterToolbarProps> = ({
         </select>
       </div>
 
-      {/* Date Picker */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <Calendar size={16} className="text-slate-400" />
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => onDateChange(e.target.value)}
-          className="input-field"
-          style={{ width: "auto" }}
-        />
+      {/* Date Navigation */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+        <button
+          onClick={() => onDateChange(shiftDateString(date, -1))}
+          className="btn btn-secondary"
+          style={{ padding: "0.4rem 0.5rem" }}
+          title="Previous day"
+        >
+          <ChevronLeft size={16} />
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <Calendar size={16} className="text-slate-400" />
+          <input
+            type="date"
+            max={todayStr}
+            value={date}
+            onChange={(e) => onDateChange(e.target.value)}
+            className="input-field"
+            style={{ width: "auto", padding: "0.4rem 0.6rem" }}
+          />
+        </div>
+
+        <button
+          onClick={() => onDateChange(shiftDateString(date, 1))}
+          className="btn btn-secondary"
+          style={{ padding: "0.4rem 0.5rem" }}
+          disabled={date >= todayStr}
+          title="Next day"
+        >
+          <ChevronRight size={16} />
+        </button>
+
+        <button
+          onClick={() => onDateChange(todayStr)}
+          className={`btn ${isCurrentDay ? "btn-primary" : "btn-secondary"}`}
+          style={{ padding: "0.4rem 0.75rem", fontSize: "0.85rem", fontWeight: isCurrentDay ? "600" : "400" }}
+          title="Focus Today"
+        >
+          Today
+        </button>
       </div>
 
       {/* Pagination Controls */}
-      <div style={{ display: "flex", gap: "0.25rem" }}>
+      <div style={{ display: "flex", gap: "0.25rem", marginLeft: "auto" }}>
         <button
           onClick={() => onPageChange((p) => Math.max(p - 1, 1))}
           className="btn btn-secondary"

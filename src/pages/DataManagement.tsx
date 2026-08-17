@@ -8,6 +8,7 @@ import {
   DeleteRecordModal,
   DeleteHistoryModal,
 } from "../components/data-management";
+import { getLocalDateString, shiftDateString } from "../utils/dateUtils";
 
 const invoke = (window as any).__TAURI__?.core?.invoke || (() => Promise.resolve());
 
@@ -25,10 +26,8 @@ export default function DataManagement() {
 
   // Data Export & Deletion
   const [exportFormat, setExportFormat] = useState("CSV");
-  const [exportFrom, setExportFrom] = useState(
-    new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().split("T")[0]
-  );
-  const [exportTo, setExportTo] = useState(new Date().toISOString().split("T")[0]);
+  const [exportFrom, setExportFrom] = useState(() => shiftDateString(getLocalDateString(), -30));
+  const [exportTo, setExportTo] = useState(() => getLocalDateString());
 
   const [deleteMode, setDeleteMode] = useState("range");
   const [deleteFrom, setDeleteFrom] = useState("");

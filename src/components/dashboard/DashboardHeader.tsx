@@ -42,8 +42,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         >
           <ChevronLeft size={16} />
         </button>
-        <span style={{ fontSize: "0.9rem", fontWeight: "600", minWidth: "80px", textAlign: "center" }}>
-          {selectedDayOffset === 0 ? "Current" : `${Math.abs(selectedDayOffset)} ${selectedDayOffset < 0 ? "prev" : "next"}`}
+        <span style={{ fontSize: "0.9rem", fontWeight: "600", minWidth: "90px", textAlign: "center" }}>
+          {selectedRange === "Today"
+            ? selectedDayOffset === 0
+              ? "Today"
+              : selectedDayOffset === -1
+              ? "Yesterday"
+              : `${Math.abs(selectedDayOffset)}d ago`
+            : selectedDayOffset === 0
+            ? "Current"
+            : `${Math.abs(selectedDayOffset)} ${selectedDayOffset < 0 ? "prev" : "next"}`}
         </span>
         <button
           onClick={() => onOffsetChange((prev) => prev + 1)}

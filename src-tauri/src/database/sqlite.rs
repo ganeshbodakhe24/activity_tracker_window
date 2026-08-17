@@ -1,10 +1,42 @@
 use rusqlite::{Connection, Result};
+use std::fs;
+use std::path::PathBuf;
 use std::time::Duration;
 use crate::database::schema::*;
 use crate::classifier::keywords::*;
 
+pub fn get_db_path() -> PathBuf {
+    let base_dir = if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+        PathBuf::from(local_appdata).join("activity_tracker")
+    } else if let Ok(appdata) = std::env::var("APPDATA") {
+        PathBuf::from(appdata).join("activity_tracker")
+    } else if let Ok(userprofile) = std::env::var("USERPROFILE") {
+        PathBuf::from(userprofile).join(".activity_tracker")
+    } else {
+        std::env::temp_dir().join("activity_tracker")
+    };
+
+    let _ = fs::create_dir_all(&base_dir);
+    let target_db = base_dir.join("activity_tracker.db");
+
+    // If target db does not exist, check if there is an existing database from development/exe directory
+    if !target_db.exists() {
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let exe_db = exe_dir.join("activity_tracker.db");
+                if exe_db.exists() {
+                    let _ = fs::copy(&exe_db, &target_db);
+                }
+            }
+        }
+    }
+
+    target_db
+}
+
 pub fn get_connection() -> Result<Connection> {
-    let conn = Connection::open("activity_tracker.db")?;
+    let db_path = get_db_path();
+    let conn = Connection::open(&db_path)?;
 
     // Wait up to 5 seconds if the database is busy
     conn.busy_timeout(Duration::from_secs(5))?;
