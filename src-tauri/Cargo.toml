@@ -31,5 +31,7 @@ windows = { version = "0.58", features = [
     "Win32_System_ProcessStatus",
     "Win32_System_Power",
     "Win32_System_SystemServices",
-    "Win32_Graphics_Gdi"
+    "Win32_Graphics_Gdi",
+    "Win32_Security"
 ] }
+tauri-plugin-single-instance = "2.4.3"

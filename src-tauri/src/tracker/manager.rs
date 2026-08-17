@@ -158,7 +158,29 @@ fn spawn_power_notifier() {
     });
 }
 
+static TRACKER_STARTED: AtomicBool = AtomicBool::new(false);
+
 pub fn start_tracker() {
+    // 1. In-process guard: prevent spawning multiple tracker threads within the same process
+    if TRACKER_STARTED.swap(true, Ordering::SeqCst) {
+        println!("Activity tracker is already running in this process. Skipping duplicate thread.");
+        return;
+    }
+
+    // 2. System-wide guard: check if another backend tracker process is already active on Windows
+    use windows::Win32::System::Threading::CreateMutexW;
+    use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows::core::w;
+
+    let _process_mutex = unsafe {
+        let handle = CreateMutexW(None, true, w!("Local\\ActivityTracker_Backend_Tracker_Mutex"));
+        if GetLastError() == ERROR_ALREADY_EXISTS {
+            println!("Activity tracker backend is already running on this system. Skipping new tracker thread.");
+            return;
+        }
+        handle
+    };
+
     println!("Activity Tracker Started...\n");
 
     // Spawn monitor power state notifier
@@ -170,7 +192,7 @@ pub fn start_tracker() {
     let current_session = Arc::new(Mutex::new(None::<Session>));
     let current_session_clone = Arc::clone(&current_session);
 
-    ctrlc::set_handler(move || {
+    let _ = ctrlc::set_handler(move || {
         println!("\nShutting down Activity Tracker... finalizing active session.");
         if let Ok(mut session_opt) = current_session_clone.lock() {
             if let Some(mut session) = session_opt.take() {
@@ -180,8 +202,7 @@ pub fn start_tracker() {
             }
         }
         std::process::exit(0);
-    })
-    .expect("Error setting Ctrl-C handler");
+    });
 
     loop {
         if IS_TRACKING.load(Ordering::Relaxed) && IS_SCREEN_ON.load(Ordering::Relaxed) {
